@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TLend Iframe Mock (For Testing EVAA Side)</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --background-color: #111827;
+            --surface-color: #1f2937;
+            --text-color: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border-color: #374151;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--background-color);
+            color: var(--text-color);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background: var(--surface-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .section h2 {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+        }
+
+        .info-value {
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .info-value.success {
+            color: var(--success-color);
+        }
+
+        .info-value.error {
+            color: var(--error-color);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--surface-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .event-log {
+            background: #000;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .log-entry.incoming {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid var(--success-color);
+        }
+
+        .log-entry.outgoing {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .applied-styles {
+            font-family: monospace;
+            font-size: 11px;
+            background: #000;
+            padding: 12px;
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TLend Iframe Mock</h1>
+        <p class="subtitle">This simulates TLend inside an iframe for testing EVAA parent integration</p>
+
+        <!-- Status -->
+        <div class="section">
+            <h2>Status</h2>
+            <div class="info-row">
+                <span class="info-label">Is Embedded:</span>
+                <span class="info-value" id="isEmbedded">Checking...</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Parent Origin:</span>
+                <span class="info-value" id="parentOrigin">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Auth Status:</span>
+                <span class="info-value" id="authStatus">Not Authenticated</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Wallet Address:</span>
+                <span class="info-value" id="walletAddress">-</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="section">
+            <h2>Send to Parent (EVAA)</h2>
+            <button class="btn btn-primary" id="sendLoadedBtn">Send TLEND_LOADED</button>
+            <button class="btn btn-secondary" id="sendReadyBtn">Send TLEND_READY</button>
+            <button class="btn btn-secondary" id="sendRepayBtn">Send REPAY_REQUEST (Mock)</button>
+            <button class="btn btn-secondary" id="sendErrorBtn">Send ERROR</button>
+        </div>
+
+        <!-- Applied Styles -->
+        <div class="section">
+            <h2>Applied Styles (from EVAA)</h2>
+            <div class="applied-styles" id="appliedStyles">No styles applied yet</div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="section">
+            <h2>Event Log</h2>
+            <div class="event-log" id="eventLog"></div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        const state = {
+            isEmbedded: false,
+            parentOrigin: null,
+            authenticated: false,
+            walletAddress: null,
+            appliedStyles: {},
+        };
+
+        // Check if embedded
+        state.isEmbedded = window.parent !== window;
+        document.getElementById('isEmbedded').textContent = state.isEmbedded ? 'Yes' : 'No';
+        document.getElementById('isEmbedded').className = `info-value ${state.isEmbedded ? 'success' : ''}`;
+
+        // Logging
+        function log(direction, type, payload) {
+            const logEl = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${direction}`;
+            entry.innerHTML = `
+                <strong>${direction === 'incoming' ? 'IN' : 'OUT'}</strong> ${type}
+                <div style="margin-top:4px;opacity:0.7;">${JSON.stringify(payload, null, 2)}</div>
+            `;
+            logEl.insertBefore(entry, logEl.firstChild);
+        }
+
+        // Send to parent
+        function sendToParent(message) {
+            if (!state.isEmbedded) {
+                alert('Not embedded in iframe - cannot send to parent');
+                return;
+            }
+            window.parent.postMessage(message, '*');
+            log('outgoing', message.type, message);
+        }
+
+        // Message handlers
+        function handleStylesUpgrade(message) {
+            const { styles, theme, logo } = message.payload;
+
+            // Apply CSS variables
+            if (styles) {
+                Object.entries(styles).forEach(([key, value]) => {
+                    document.documentElement.style.setProperty(key, value);
+                });
+                state.appliedStyles = styles;
+
+                // Update display
+                document.getElementById('appliedStyles').textContent =
+                    JSON.stringify(styles, null, 2);
+            }
+
+            // Apply theme class
+            if (theme) {
+                document.body.classList.remove('theme-light', 'theme-dark');
+                document.body.classList.add(`theme-${theme}`);
+            }
+        }
+
+        function handleAuthCheckRequest(message) {
+            const { requestId, payload } = message;
+
+            // Respond with current auth status
+            const response = {
+                type: 'AUTH_CHECK_RESPONSE',
+                requestId: requestId,
+                timestamp: Date.now(),
+                payload: {
+                    authenticated: state.authenticated,
+                    address: state.walletAddress,
+                    matchesRequested: state.walletAddress === payload.walletAddress,
+                }
+            };
+
+            sendToParent(response);
+        }
+
+        function handleAuthCredentials(message) {
+            const { requestId, payload } = message;
+
+            // Simulate auth verification
+            setTimeout(() => {
+                state.authenticated = true;
+                state.walletAddress = payload.account.address;
+
+                // Update UI
+                document.getElementById('authStatus').textContent = 'Authenticated';
+                document.getElementById('authStatus').className = 'info-value success';
+                document.getElementById('walletAddress').textContent =
+                    state.walletAddress.slice(0, 12) + '...' + state.walletAddress.slice(-8);
+
+                // Send result
+                const result = {
+                    type: 'AUTH_RESULT',
+                    requestId: requestId,
+                    timestamp: Date.now(),
+                    payload: {
+                        success: true,
+                        address: payload.account.address,
+                        expiresAt: Date.now() + (10 * 60 * 60 * 1000), // 10 hours
+                    }
+                };
+                sendToParent(result);
+
+                // Send TLEND_READY after auth
+                setTimeout(() => {
+                    sendToParent({
+                        type: 'TLEND_READY',
+                        timestamp: Date.now(),
+                        payload: {
+                            address: state.walletAddress,
+                        }
+                    });
+                }, 500);
+            }, 1000);
+        }
+
+        function handleRepayResult(message) {
+            const { payload } = message;
+            if (payload.success) {
+                alert(`Repayment successful! TX: ${payload.transactionHash?.slice(0, 16)}...`);
+            } else {
+                alert(`Repayment failed: ${payload.error?.message}`);
+            }
+        }
+
+        // Message listener
+        window.addEventListener('message', (event) => {
+            state.parentOrigin = event.origin;
+            document.getElementById('parentOrigin').textContent = event.origin;
+
+            const message = event.data;
+            if (!message || !message.type) return;
+
+            log('incoming', message.type, message);
+
+            switch (message.type) {
+                case 'STYLES_UPGRADE':
+                    handleStylesUpgrade(message);
+                    break;
+                case 'AUTH_CHECK_REQUEST':
+                    handleAuthCheckRequest(message);
+                    break;
+                case 'AUTH_CREDENTIALS':
+                    handleAuthCredentials(message);
+                    break;
+                case 'REPAY_RESULT':
+                    handleRepayResult(message);
+                    break;
+            }
+        });
+
+        // Button handlers
+        document.getElementById('sendLoadedBtn').addEventListener('click', () => {
+            sendToParent({
+                type: 'TLEND_LOADED',
+                timestamp: Date.now(),
+                payload: {
+                    version: '2.1.0-mock',
+                    capabilities: ['auth_delegation', 'repay_delegation', 'custom_styles']
+                }
+            });
+        });
+
+        document.getElementById('sendReadyBtn').addEventListener('click', () => {
+            sendToParent({
+                type: 'TLEND_READY',
+                timestamp: Date.now(),
+                payload: {
+                    address: state.walletAddress || '0:mock_address',
+                }
+            });
+        });
+
+        document.getElementById('sendRepayBtn').addEventListener('click', () => {
+            sendToParent({
+                type: 'REPAY_REQUEST',
+                requestId: `repay-${Date.now()}`,
+                timestamp: Date.now(),
+                payload: {
+                    lendId: 12345,
+                    nftIndex: '42',
+                    amount: {
+                        value: '50000000',
+                        decimals: 6,
+                        formatted: '50.00',
+                        currency: 'USDT'
+                    },
+                    transaction: {
+                        validUntil: Math.floor(Date.now() / 1000) + 300,
+                        messages: [{
+                            address: 'EQBx7JH9...',
+                            amount: '60000000',
+                            payload: 'te6cckEBAQEA...'
+                        }]
+                    },
+                    metadata: {
+                        userAddress: state.walletAddress || '0:mock_user_address',
+                        tLendContractAddress: 'EQC...',
+                        jettonMasterAddress: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'
+                    }
+                }
+            });
+        });
+
+        document.getElementById('sendErrorBtn').addEventListener('click', () => {
+            sendToParent({
+                type: 'ERROR',
+                timestamp: Date.now(),
+                payload: {
+                    code: 'TEST_ERROR',
+                    message: 'This is a test error from TLend mock',
+                    recoverable: true
+                }
+            });
+        });
+
+        // Auto-send TLEND_LOADED if embedded
+        if (state.isEmbedded) {
+            setTimeout(() => {
+                sendToParent({
+                    type: 'TLEND_LOADED',
+                    timestamp: Date.now(),
+                    payload: {
+                        version: '2.1.0-mock',
+                        capabilities: ['auth_delegation', 'repay_delegation', 'custom_styles']
+                    }
+                });
+            }, 500);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner Mock - TLend Iframe Integration Test (RFC v2.0)</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- TON Connect UI from CDN (UMD build) -->
+    <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="16" fill="#6366f1"/>
+                    <text x="16" y="21" text-anchor="middle" fill="white" font-size="14" font-weight="bold">P</text>
+                </svg>
+                <span>Partner Mock Test Stand (RFC v2.0)</span>
+            </div>
+            <div class="wallet-section" id="walletSection">
+                <!-- TON Connect UI button will be injected here -->
+                <div id="ton-connect-button"></div>
+            </div>
+        </header>
+
+        <!-- Configuration Panel -->
+        <section class="config-panel">
+            <h2>Configuration</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="tlendUrl">TLend UI URL:</label>
+                    <input type="url" id="tlendUrl"
+                           value="https://t-lend-ui-pr-61.evgeniy-kirichenko.workers.dev"
+                           placeholder="https://tlend.co">
+                    <small>Enter the TLend UI deployment URL (e.g., CF Worker PR URL)</small>
+                </div>
+                <div class="config-item">
+                    <label for="partnerId">Partner ID:</label>
+                    <input type="text" id="partnerId"
+                           value="partner_xyz"
+                           placeholder="partner_xyz">
+                    <small>Unique partner identifier (assigned during onboarding)</small>
+                </div>
+                <div class="config-item">
+                    <label for="partnerName">Partner Name:</label>
+                    <input type="text" id="partnerName"
+                           value="Partner Finance"
+                           placeholder="Partner Finance">
+                    <small>Display name for combined logo</small>
+                </div>
+                <div class="config-item">
+                    <label for="partnerTheme">Theme:</label>
+                    <select id="partnerTheme">
+                        <option value="dark">Dark (Default)</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label for="logoMode">Logo Mode:</label>
+                    <select id="logoMode">
+                        <option value="combined">Combined (TLend x Partner)</option>
+                        <option value="tlend_only">TLend Only</option>
+                        <option value="partner_only">Partner Only</option>
+                    </select>
+                    <small>How to display logo in TLend iframe</small>
+                </div>
+                <div class="config-item">
+                    <label for="autoReadyMode">Auto-Ready Mode:</label>
+                    <select id="autoReadyMode">
+                        <option value="auto">Auto (wait for TLEND_READY)</option>
+                        <option value="immediate" selected>Immediate (set READY on load)</option>
+                        <option value="manual">Manual (use button)</option>
+                    </select>
+                    <small>Use "Immediate" if TLend doesn't send all messages yet</small>
+                </div>
+                <div class="config-item">
+                    <label for="skipAuth">Skip Authentication:</label>
+                    <select id="skipAuth">
+                        <option value="no" selected>No - Send auth messages</option>
+                        <option value="yes">Yes - Just load iframe</option>
+                    </select>
+                    <small>Send AUTH_CHECK_REQUEST and AUTH_CREDENTIALS to TLend</small>
+                </div>
+            </div>
+            <div class="config-actions">
+                <button class="btn btn-primary" id="loadIframeBtn">Load TLend Iframe</button>
+                <button class="btn btn-secondary" id="reloadIframeBtn" disabled>Reload Iframe</button>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left: Iframe Container -->
+            <section class="iframe-section">
+                <div class="iframe-header">
+                    <h3>TLend Iframe</h3>
+                    <div class="iframe-status" id="iframeStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Not Loaded</span>
+                    </div>
+                </div>
+                <div class="iframe-container" id="iframeContainer">
+                    <div class="iframe-placeholder">
+                        <p>Configure URL and click "Load TLend Iframe" to start</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Control Panel & Logs -->
+            <aside class="control-panel">
+                <!-- Manual Actions -->
+                <div class="panel-section">
+                    <h3>Manual Actions</h3>
+                    <div class="action-buttons">
+                        <button class="btn btn-action" id="sendStylesBtn" disabled>
+                            Send STYLES_UPGRADE
+                        </button>
+                        <button class="btn btn-action" id="sendLogoBtn" disabled>
+                            Send SET_LOGO
+                        </button>
+                        <button class="btn btn-action" id="sendAuthCheckBtn" disabled>
+                            Send AUTH_CHECK_REQUEST
+                        </button>
+                        <button class="btn btn-action" id="sendAuthCredsBtn" disabled>
+                            Send AUTH_CREDENTIALS
+                        </button>
+                        <button class="btn btn-action btn-disconnect" id="sendDisconnectBtn" disabled>
+                            Send DISCONNECT
+                        </button>
+                        <button class="btn btn-action btn-ready" id="setReadyBtn" disabled>
+                            Force Set READY State
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lifecycle State -->
+                <div class="panel-section">
+                    <h3>TLend State</h3>
+                    <div class="state-indicator">
+                        <div class="state-item" data-state="LOADING">
+                            <span class="state-circle"></span>
+                            <span>LOADING</span>
+                        </div>
+                        <div class="state-item" data-state="PENDING_AUTH">
+                            <span class="state-circle"></span>
+                            <span>PENDING_AUTH</span>
+                        </div>
+                        <div class="state-item" data-state="READY">
+                            <span class="state-circle"></span>
+                            <span>READY</span>
+                        </div>
+                        <div class="state-item" data-state="ERROR">
+                            <span class="state-circle"></span>
+                            <span>ERROR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Repay Request Panel -->
+                <div class="panel-section" id="repayPanel" style="display: none;">
+                    <h3>Pending Repay Request</h3>
+                    <div class="repay-details" id="repayDetails"></div>
+                    <div class="repay-actions">
+                        <button class="btn btn-success" id="approveRepayBtn">Approve & Sign</button>
+                        <button class="btn btn-danger" id="rejectRepayBtn">Reject</button>
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="panel-section log-section">
+                    <div class="log-header">
+                        <h3>Event Log</h3>
+                        <button class="btn btn-small" id="clearLogBtn">Clear</button>
+                    </div>
+                    <div class="event-log" id="eventLog"></div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- TON Connect Modal Container -->
+    <div id="ton-connect-modal"></div>
+
+    <!-- Repay Confirmation Modal -->
+    <div class="modal" id="repayModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Repayment</h2>
+                <button class="modal-close" id="closeRepayModal">&times;</button>
+            </div>
+            <div class="modal-body" id="repayModalBody">
+                <!-- Filled dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelRepayBtn">Cancel</button>
+                <button class="btn btn-primary" id="confirmRepayBtn">Confirm & Sign</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="evaa-mock.js"></script>
+</body>
+</html>
