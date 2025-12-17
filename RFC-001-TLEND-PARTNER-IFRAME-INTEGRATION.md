@@ -58,7 +58,7 @@ Partners (DeFi protocols, wallets, aggregators) may seek to integrate TLend's le
 | Environment | Iframe URL | Backend API | Origin (for validation) |
 |-------------|------------|-------------|-------------------------|
 | **Production** | `https://app.tlend.co` | `https://backend.tlend.co` | `https://app.tlend.co` |
-| **Staging** | `https://app-test.tlend.co` | `https://backend.tlend.co` | `https://app-test.tlend.co` |
+| **Staging** | `https://app-test.tlend.co` | `https://backend-test.tlend.co` | `https://app-test.tlend.co` |
 
 ### Iframe Embedding
 
