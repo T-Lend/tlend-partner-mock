@@ -239,14 +239,15 @@ async function initTonConnect() {
 
         // Set up TON Proof request BEFORE any connection attempt
         // This tells wallets we want a proof when connecting
-        const proofPayload = generateProofPayload();
+        // Using TLend's challenge endpoint (Option B per RFC Section 12.3)
+        const proofPayload = await fetchTLendChallenge();
         state.tonConnectUI.setConnectRequestParameters({
             state: 'ready',
             value: {
                 tonProof: proofPayload,
             },
         });
-        logInfo(`TON Proof request configured with payload: ${proofPayload}`);
+        logInfo(`TON Proof configured with TLend challenge`);
 
         // Subscribe to wallet status changes
         state.tonConnectUI.onStatusChange(async (wallet) => {
@@ -297,11 +298,12 @@ async function connectWithProof() {
     }
 
     try {
-        // Set up proof request
+        // Fetch fresh challenge from TLend (Option B per RFC Section 12.3)
+        const challenge = await fetchTLendChallenge();
         state.tonConnectUI.setConnectRequestParameters({
             state: 'ready',
             value: {
-                tonProof: generateProofPayload(),
+                tonProof: challenge,
             },
         });
 
@@ -311,10 +313,29 @@ async function connectWithProof() {
     }
 }
 
+// Fetch challenge from TLend backend (Option B per RFC Section 12.3)
+async function fetchTLendChallenge() {
+    try {
+        const response = await fetch('https://backend.tlend.co/api/auth/challenge');
+        if (!response.ok) {
+            throw new Error(`Challenge fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        logInfo(`Fetched TLend challenge: ${data.challenge.substring(0, 20)}...`);
+        return data.challenge;
+    } catch (error) {
+        logInfo(`Failed to fetch TLend challenge: ${error.message}`);
+        // Fallback to mock payload for offline testing
+        const timestamp = Math.floor(Date.now() / 1000) + 300;
+        return `partner-mock-fallback-${timestamp}`;
+    }
+}
+
+// Legacy sync function for compatibility (uses cached or generates mock)
 function generateProofPayload() {
-    // Generate a simple payload for testing
-    // In production, partners MUST use HMAC-signed payload per RFC Section 12.2
-    const timestamp = Math.floor(Date.now() / 1000) + 300; // 5 min expiry
+    // For sync contexts, return mock payload
+    // Prefer fetchTLendChallenge() for actual usage
+    const timestamp = Math.floor(Date.now() / 1000) + 300;
     return `partner-mock-${timestamp}`;
 }
 
@@ -1216,6 +1237,7 @@ window.PartnerMock = {
     approveRepayRequest,
     rejectRepayRequest,
     generateMockTonProof,
+    fetchTLendChallenge,
     forceSetReady,
     connectWithProof,
 };
