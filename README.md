@@ -1,6 +1,6 @@
 # Partner Mock Test Stand
 
-A testing environment that simulates a Partner parent application for testing TLend iframe integration as specified in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](../RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) (v2.0).
+A testing environment that simulates a Partner parent application for testing TLend iframe integration as specified in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](./RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) (v2.0).
 
 ## Quick Start
 
@@ -198,12 +198,13 @@ The Event Log panel shows all communication in real-time. Click "Clear" to reset
 ## Files
 
 ```
-evaa-mock-test/
-├── index.html              # Main Partner mock test stand
-├── styles.css              # Partner-like styling
-├── evaa-mock.js            # Message handling logic
-├── tlend-iframe-mock.html  # TLend mock (for testing Partner side)
-└── README.md               # This file
+tlend-partner-mock/
+├── index.html                                  # Main Partner mock test stand
+├── styles.css                                  # Partner-like styling
+├── partner-mock.js                             # Message handling logic
+├── tlend-iframe-mock.html                      # TLend mock (for testing Partner side)
+├── RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md # Protocol specification (v2.0)
+└── README.md                                   # This file
 ```
 
 ## Testing Both Sides
@@ -229,4 +230,4 @@ When implementing the TLend side of this integration:
 
 ## Support
 
-Refer to the full specification in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](../RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) for detailed protocol documentation.
+Refer to the full specification in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](./RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) for detailed protocol documentation.
