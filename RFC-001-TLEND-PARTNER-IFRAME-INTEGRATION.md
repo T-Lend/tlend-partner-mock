@@ -1498,7 +1498,7 @@ The mock test stand includes:
 **Quick Start:**
 ```bash
 git clone https://github.com/T-Lend/tlend-partner-mock.git
-cd tlend-partner-mock
+cd tlend-partner-mock/app
 python3 -m http.server 8080
 # Open http://localhost:8080
 ```

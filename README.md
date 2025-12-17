@@ -7,8 +7,9 @@ A testing environment that simulates a Partner parent application for testing TL
 ### Option 1: Local HTTP Server (Recommended)
 
 ```bash
-# Navigate to the mock test directory
-cd /home/temni/evaa/evaa-mock-test
+# Clone and navigate to the app directory
+git clone https://github.com/T-Lend/tlend-partner-mock.git
+cd tlend-partner-mock/app
 
 # Start a local server (choose one)
 python3 -m http.server 8080
@@ -199,10 +200,13 @@ The Event Log panel shows all communication in real-time. Click "Clear" to reset
 
 ```
 tlend-partner-mock/
-├── index.html                                  # Main Partner mock test stand
-├── styles.css                                  # Partner-like styling
-├── partner-mock.js                             # Message handling logic
-├── tlend-iframe-mock.html                      # TLend mock (for testing Partner side)
+├── app/
+│   ├── index.html              # Main Partner mock test stand
+│   ├── partner-mock.js         # Message handling logic
+│   ├── styles.css              # Partner-like styling
+│   ├── tlend-iframe-mock.html  # TLend mock (for testing Partner side)
+│   ├── logo-combined-dark.svg  # Combined logo (dark theme)
+│   └── logo-combined-light.svg # Combined logo (light theme)
 ├── RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md # Protocol specification (v2.0)
 └── README.md                                   # This file
 ```
