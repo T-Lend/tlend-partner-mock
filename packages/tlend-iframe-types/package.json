@@ -1,0 +1,57 @@
+{
+  "name": "@tlend/iframe-types",
+  "version": "1.0.0",
+  "description": "TypeScript type definitions for TLend Partner Iframe Integration Protocol",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "prepublishOnly": "npm run build",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "tlend",
+    "iframe",
+    "integration",
+    "typescript",
+    "types",
+    "ton",
+    "blockchain"
+  ],
+  "author": "TLend Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/T-Lend/tlend-partner-mock.git",
+    "directory": "packages/tlend-iframe-types"
+  },
+  "homepage": "https://github.com/T-Lend/tlend-partner-mock#readme",
+  "bugs": {
+    "url": "https://github.com/T-Lend/tlend-partner-mock/issues"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.7.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

@@ -200,6 +200,22 @@ The Event Log panel shows all communication in real-time. Click "Clear" to reset
 - [ ] Timeout handling works
 - [ ] Error messages are logged
 
+## TypeScript Types Package
+
+For TypeScript/JavaScript integration, install the official type definitions:
+
+```bash
+npm install @tlend/iframe-types
+```
+
+This package provides:
+- All message type definitions
+- Type guards and validators
+- Constants (error codes, timeouts, capabilities)
+- Utility functions
+
+See [packages/tlend-iframe-types/README.md](./packages/tlend-iframe-types/README.md) for detailed usage.
+
 ## Files
 
 ```
@@ -211,6 +227,11 @@ tlend-partner-mock/
 │   ├── tlend-iframe-mock.html  # TLend mock (for testing Partner side)
 │   ├── logo-combined-dark.svg  # Combined logo (dark theme)
 │   └── logo-combined-light.svg # Combined logo (light theme)
+├── packages/
+│   └── tlend-iframe-types/     # TypeScript type definitions (npm package)
+├── .github/
+│   └── workflows/
+│       └── publish-types.yml   # GitHub Action for npm publishing
 ├── RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md # Protocol specification (v2.2.0)
 └── README.md                                   # This file
 ```

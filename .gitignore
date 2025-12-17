@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+packages/*/dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# npm
+*.tgz
+package-lock.json
+
+# Logs
+*.log
+npm-debug.log*
