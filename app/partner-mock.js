@@ -2,7 +2,7 @@
  * Partner Mock Test Stand - TLend Iframe Integration
  *
  * This script implements the Partner (parent) side of the iframe integration
- * protocol as specified in RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md (v2.0)
+ * protocol as specified in RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md (v2.2.0)
  *
  * Includes actual TON Connect UI integration for real wallet connections.
  *
@@ -21,10 +21,11 @@ const THEME = window.TON_CONNECT_UI?.THEME || { DARK: 'DARK', LIGHT: 'LIGHT' };
 // ============================================================================
 
 const CONFIG = {
-    // TLend origin validation (update for testing)
+    // TLend origin validation
+    // Use app.tlend.co (SPA), not tlend.co (marketing site)
     TLEND_ORIGINS: [
-        'https://tlend.co',
-        'https://staging.tlend.co',
+        'https://app.tlend.co',       // Production
+        'https://app-test.tlend.co',  // Staging
     ],
     // Timeouts (ms)
     AUTH_CHECK_TIMEOUT: 5000,
@@ -1213,7 +1214,7 @@ async function initialize() {
     // Initialize TON Connect UI
     await initTonConnect();
 
-    logInfo('Partner Mock Test Stand initialized (RFC v2.0)');
+    logInfo('Partner Mock Test Stand initialized (RFC v2.2.0)');
     logInfo('1. Connect wallet with TON Connect (top right)');
     logInfo('2. Load TLend iframe');
     logInfo('3. Auth messages will be sent automatically on TLEND_READY');

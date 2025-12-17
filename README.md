@@ -1,6 +1,6 @@
 # Partner Mock Test Stand
 
-A testing environment that simulates a Partner parent application for testing TLend iframe integration as specified in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](./RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) (v2.0).
+A testing environment that simulates a Partner parent application for testing TLend iframe integration as specified in [RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md](./RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md) (v2.2.0).
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ Simply open `index.html` in a modern browser. Note: Some features may require a 
 
 ## Features
 
-This mock test stand implements all three tracks from the RFC v2.0:
+This mock test stand implements all three tracks from the RFC:
 
 ### Track 1: UI/UX Customization
 - Sends `STYLES_UPGRADE` message with Partner theme colors
@@ -56,9 +56,9 @@ This mock test stand implements all three tracks from the RFC v2.0:
 
 Enter the TLend UI deployment URL you want to test:
 
-- **Production**: `https://tlend.co`
-- **Staging**: `https://staging.tlend.co`
-- **PR Preview**: `https://t-lend-ui-pr-61.evgeniy-kirichenko.workers.dev`
+- **Production**: `https://app.tlend.co`
+- **Staging**: `https://app-test.tlend.co`
+- **PR Preview**: `https://t-lend-ui-pr-XXX.evgeniy-kirichenko.workers.dev`
 - **Local Dev**: `http://localhost:5173`
 
 ### 2. Configure Partner Settings
@@ -123,7 +123,7 @@ The "TLend State" panel shows the current lifecycle state:
 
 ## Message Formats
 
-All messages follow the RFC-001 v2.0 specification. See the Event Log for full JSON payloads.
+All messages follow the RFC-001 v2.2.0 specification. See the Event Log for full JSON payloads.
 
 ### Key Message Types
 
@@ -211,7 +211,7 @@ tlend-partner-mock/
 │   ├── tlend-iframe-mock.html  # TLend mock (for testing Partner side)
 │   ├── logo-combined-dark.svg  # Combined logo (dark theme)
 │   └── logo-combined-light.svg # Combined logo (light theme)
-├── RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md # Protocol specification (v2.0)
+├── RFC-001-TLEND-PARTNER-IFRAME-INTEGRATION.md # Protocol specification (v2.2.0)
 └── README.md                                   # This file
 ```
 

@@ -1,7 +1,7 @@
 # RFC-001: TLend Partner Iframe Integration Protocol
 
 **Status:** Draft
-**Version:** 2.1.0
+**Version:** 2.2.0
 **Date:** 2025-12-17
 **Authors:** TLend Team
 
@@ -86,8 +86,9 @@ Embed TLend by loading the iframe URL with your partner ID:
 
 ### Test Partner ID
 
-For staging environment testing, you may use:
-- Partner ID: `partner_test` (contact TLend for production ID)
+For staging environment testing:
+- **Staging Partner ID:** `partner_test`
+- Contact TLend for your production partner ID during onboarding
 
 ---
 
@@ -182,10 +183,14 @@ window.addEventListener('message', (event) => {
 
 **Partner (parent) validates:**
 ```typescript
-const TLEND_ORIGIN = 'https://tlend.co';
+// Use app.tlend.co (SPA), not tlend.co (marketing site)
+const TLEND_ORIGINS = [
+  'https://app.tlend.co',       // Production
+  'https://app-test.tlend.co',  // Staging
+];
 
 window.addEventListener('message', (event) => {
-  if (event.origin !== TLEND_ORIGIN) {
+  if (!TLEND_ORIGINS.includes(event.origin)) {
     return;
   }
   // Process message...
@@ -552,6 +557,12 @@ interface AuthCheckRequestMessage {
 }
 ```
 
+**Address Format:**
+- **Raw format only**: `0:` followed by 64 hex characters
+- Example: `0:fcb91a3a3816d0f7b8c2c76108b8a9bc5a6b7a55bd79f8ab101c52db29232260`
+- User-friendly formats (`EQ...`, `UQ...`) are NOT accepted
+- Partner must convert addresses to raw format before sending
+
 **Example:**
 ```json
 {
@@ -641,7 +652,7 @@ interface AuthCredentialsMessage {
   payload: {
     account: {
       address: string;         // Raw TON address (e.g., "0:abc...")
-      chain: string;           // Chain ID (e.g., "-239" for mainnet)
+      chain: string;           // Chain ID: "-239" (mainnet only, testnet not supported)
       publicKey: string;       // Hex-encoded public key
       walletStateInit: string; // Base64-encoded wallet state init
     };
@@ -661,7 +672,9 @@ interface AuthCredentialsMessage {
 ```
 
 **Field Notes:**
-- `referenceId` is optional and used for Partner's analytics/debugging. TLend logs it but doesn't act on it. Recommended format: `{partnerId}-{userId}-{timestamp}`
+- `referenceId` is optional and used for Partner's analytics/debugging. TLend logs it but doesn't act on it.
+  - **Max length:** 32 bytes
+  - Recommended format: `{partnerId}-{sessionId}` (e.g., `partner_xyz-abc123`)
 
 **Example:**
 ```json
@@ -745,6 +758,13 @@ interface AuthResultMessage {
 ### 7.7 Message: TLEND_READY
 
 Sent by TLend when fully loaded, authenticated, and ready for display.
+
+**Timing:** This message is sent only after:
+1. TLend UI has fully loaded (all assets, initial data fetched)
+2. `AUTH_RESULT` with `success: true` has been sent
+3. User session is fully established
+
+Partner should show the iframe to the user only after receiving this message.
 
 ```typescript
 interface TLendReadyMessage {
@@ -845,15 +865,17 @@ interface RepayRequestMessage {
     };
     transaction: {
       // Pre-built transaction for Partner to sign and send
+      // Format follows TON Connect SendTransactionRequest spec
+      // See: https://github.com/ton-blockchain/ton-connect
       validUntil: number;          // Unix timestamp when transaction expires
-      messages: Array<{
+      messages: Array<{            // Array per TON Connect spec (usually 1 message for repay)
         address: string;           // Destination address (user's Jetton wallet)
         amount: string;            // TON amount for gas (in nanotons)
         payload: string;           // Base64-encoded BOC payload
       }>;
     };
     metadata: {
-      userAddress: string;          // User's wallet address
+      userAddress: string;          // User's wallet address (raw format)
       tLendContractAddress: string; // TLend contract address
       jettonMasterAddress: string;  // USDT jetton master address
     };
@@ -894,6 +916,15 @@ interface RepayRequestMessage {
   }
 }
 ```
+
+**Address Format Note:**
+
+The `transaction` object follows the [TON Connect SendTransactionRequest](https://github.com/ton-blockchain/ton-connect/blob/main/requests-responses.md#send-transaction) specification. Addresses in `transaction.messages[].address` use **user-friendly format** (`EQ...`/`UQ...`), not raw format. Partner should pass this object directly to `tonConnectUI.sendTransaction()` without any address conversion.
+
+The raw format requirement (Section 7.3) applies only to:
+- `AUTH_CREDENTIALS.account.address`
+- `AUTH_CHECK_REQUEST.payload.walletAddress`
+- `metadata.userAddress`
 
 ### 8.4 Message: REPAY_RESULT
 
@@ -1048,10 +1079,15 @@ Partner Wallet State          TLend Iframe State
 ### 9.5 Iframe Reload Behavior
 
 When the iframe is reloaded (user navigates away and back, page refresh):
-1. TLend sends `TLEND_LOADED` or `TLEND_READY`
+1. TLend **always** sends `TLEND_LOADED` first (never TLEND_READY directly)
 2. Partner sends `AUTH_CHECK_REQUEST` with current wallet address
 3. Normal authentication handshake proceeds
 4. Fresh credentials are provided (challenges have expiration)
+5. TLend sends `TLEND_READY` after successful authentication
+
+**Note:** `TLEND_READY` is only sent after both:
+- TLend UI has fully loaded
+- Authentication has succeeded (AUTH_RESULT with success: true)
 
 This ensures a clean authentication state on every iframe session.
 
@@ -1065,10 +1101,14 @@ This ensures a clean authentication state on every iframe session.
 
 ```typescript
 // Partner - MUST validate TLend origin
-const TLEND_ORIGIN = 'https://tlend.co';
+// Use app.tlend.co (SPA), not tlend.co (marketing site)
+const TLEND_ORIGINS = [
+  'https://app.tlend.co',       // Production
+  'https://app-test.tlend.co',  // Staging
+];
 
 window.addEventListener('message', (event) => {
-  if (event.origin !== TLEND_ORIGIN) {
+  if (!TLEND_ORIGINS.includes(event.origin)) {
     return;
   }
   // Safe to process
@@ -1132,21 +1172,25 @@ TLend backend should rate limit:
 
 ### 11.1 Error Codes
 
-| Code                 | Description                      | Recovery Action                     |
-|----------------------|----------------------------------|-------------------------------------|
-| `INVALID_ORIGIN`     | Message from unauthorized origin | Ignore message                      |
-| `INVALID_MESSAGE`    | Malformed message structure      | Report error to sender              |
-| `AUTH_EXPIRED`       | Authentication token expired     | Request new credentials             |
-| `INVALID_SIGNATURE`  | TON proof signature invalid      | Request new credentials             |
-| `INVALID_PAYLOAD`    | Payload verification failed      | Request new credentials             |
-| `PAYLOAD_EXPIRED`    | Payload timestamp expired        | Request new credentials             |
-| `ADDRESS_MISMATCH`   | Wallet address mismatch          | Re-authenticate with correct wallet |
-| `USER_REJECTED`      | User cancelled transaction       | Inform user, allow retry            |
-| `INSUFFICIENT_FUNDS` | Not enough balance               | Display balance error               |
-| `TRANSACTION_FAILED` | Network transaction failed       | Display error, allow retry          |
-| `TIMEOUT`            | Operation timed out              | Allow retry                         |
-| `INTERNAL_ERROR`     | Unexpected system error          | Display generic error               |
-| `PARTNER_NOT_FOUND`  | Unknown partnerId                | Contact TLend for onboarding        |
+| Code                   | Description                         | Recovery Action                     |
+|------------------------|-------------------------------------|-------------------------------------|
+| `INVALID_ORIGIN`       | Message from unauthorized origin    | Ignore message                      |
+| `INVALID_MESSAGE`      | Malformed message structure         | Report error to sender              |
+| `AUTH_EXPIRED`         | Authentication token expired        | Request new credentials             |
+| `INVALID_SIGNATURE`    | TON proof signature invalid         | Request new credentials             |
+| `INVALID_PAYLOAD`      | Payload verification failed         | Request new credentials             |
+| `PAYLOAD_EXPIRED`      | Payload timestamp expired           | Request new credentials             |
+| `DOMAIN_MISMATCH`      | proof.domain.value not whitelisted  | Contact TLend to whitelist domain   |
+| `INVALID_CHAIN`        | Unsupported chain (only -239)       | Use mainnet wallet                  |
+| `INVALID_ADDRESS_FORMAT` | Address not in raw format (0:...)  | Convert to raw format               |
+| `ADDRESS_MISMATCH`     | Wallet address mismatch             | Re-authenticate with correct wallet |
+| `USER_REJECTED`        | User cancelled transaction          | Inform user, allow retry            |
+| `INSUFFICIENT_FUNDS`   | Not enough balance                  | Display balance error               |
+| `TRANSACTION_FAILED`   | Network transaction failed          | Display error, allow retry          |
+| `TIMEOUT`              | Operation timed out                 | Allow retry                         |
+| `INTERNAL_ERROR`       | Unexpected system error             | Display generic error               |
+| `PARTNER_NOT_FOUND`    | Unknown partnerId                   | Contact TLend for onboarding        |
+| `UNSUPPORTED_LOGO_MODE`| Invalid logo mode in SET_LOGO       | Use valid mode: tlend_only, partner_only, combined |
 
 ### 11.2 Error Message Format
 
@@ -1183,9 +1227,13 @@ interface ErrorMessage {
 | `INVALID_SIGNATURE` | No | - | Request new credentials |
 | `INVALID_PAYLOAD` | No | - | Request new credentials |
 | `PAYLOAD_EXPIRED` | No | - | Generate new payload |
+| `DOMAIN_MISMATCH` | No | - | Contact TLend support |
+| `INVALID_CHAIN` | No | - | Use mainnet wallet |
+| `INVALID_ADDRESS_FORMAT` | No | - | Convert address to raw format |
 | `USER_REJECTED` | No | - | User must re-initiate |
 | `PARTNER_NOT_FOUND` | No | - | Contact TLend support |
 | `INSUFFICIENT_FUNDS` | No | - | User must add funds |
+| `UNSUPPORTED_LOGO_MODE` | No | - | Fix logo mode value |
 
 #### Retry Implementation
 
@@ -1299,7 +1347,9 @@ The `proof.payload` field in `AUTH_CREDENTIALS` must be verifiable by TLend. Par
 
 #### Option A: Standard HMAC Payload (Recommended)
 
-Use TLend's standard 32-byte payload format with shared HMAC secret:
+Use TLend's standard 32-byte payload format with shared HMAC secret.
+
+**Expiration Window:** Configurable per partner during onboarding (default: 15 minutes)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1365,15 +1415,26 @@ function verifyPartnerPayload(payloadHex: string, sharedSecret: Buffer): boolean
 
 #### Option B: TLend Challenge Endpoint (Simpler)
 
-If partner cannot manage HMAC shared secrets, they can use TLend's challenge endpoint:
+If partner cannot manage HMAC shared secrets, they can use TLend's challenge endpoint.
 
-1. Partner calls TLend's challenge endpoint before TON Connect:
-   ```
-   GET https://backend.tlend.co/api/auth/challenge
+**Expiration Window:** 1 minute (fixed, not configurable)
 
-   Response: { "challenge": "iGE2WPrESdwAAAGbLBOTnhyn1e/uiQEr..." }
-   ```
+**API Specification:**
+```
+GET https://backend.tlend.co/api/auth/challenge
 
+Response (200 OK):
+{
+  "challenge": "c2FtcGxlLWNoYWxsZW5nZS1zdHJpbmc="  // Base64-encoded challenge
+}
+
+Error Responses:
+- 429 Too Many Requests: Rate limited (max 60 requests/minute per IP)
+- 500 Internal Server Error: Retry with backoff
+```
+
+**Flow:**
+1. Partner calls TLend's challenge endpoint before TON Connect
 2. Partner uses this challenge as the `tonProof` payload in TON Connect
 3. TLend verifies the challenge since TLend generated it
 
@@ -1383,8 +1444,11 @@ If partner cannot manage HMAC shared secrets, they can use TLend's challenge end
 ```typescript
 async function getProofPayload(): Promise<string> {
   const response = await fetch('https://backend.tlend.co/api/auth/challenge');
+  if (!response.ok) {
+    throw new Error(`Challenge request failed: ${response.status}`);
+  }
   const data = await response.json();
-  return data.challenge;
+  return data.challenge;  // Base64-encoded string
 }
 
 // Use in TON Connect
@@ -1792,6 +1856,7 @@ Please prepare:
 | 1.0.0   | 2025-12-15 | TLend Team | Initial draft                                     |
 | 2.0.0   | 2025-12-17 | TLend Team | Whitelabel support, session lifecycle, SET_LOGO   |
 | 2.1.0   | 2025-12-17 | TLend Team | Added Quick Start, timing guide, retry policy, support info |
+| 2.2.0   | 2025-12-17 | TLend Team | Address format (raw only), chain ID (-239 mainnet), new error codes (DOMAIN_MISMATCH, INVALID_CHAIN, INVALID_ADDRESS_FORMAT, UNSUPPORTED_LOGO_MODE), challenge endpoint spec, TLEND_READY timing clarification |
 
 ---
 
