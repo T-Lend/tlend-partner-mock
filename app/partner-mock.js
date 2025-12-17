@@ -30,12 +30,11 @@ const CONFIG = {
     AUTH_CHECK_TIMEOUT: 5000,
     AUTH_CREDENTIALS_TIMEOUT: 30000,
     REPAY_TIMEOUT: 60000,
-    // TON Connect manifest for this mock app
-    TON_CONNECT_MANIFEST: {
-        url: 'https://evaa.finance',
-        name: 'EVAA Mock Test',
-        iconUrl: 'https://evaa.finance/favicon.ico',
-    },
+    // TON Connect manifest - FOR TESTING ONLY
+    // In production, partners MUST use their own manifest on their domain.
+    // The manifest domain is verified by TLend and must be whitelisted.
+    // See RFC Section 10.3 and 12.1 for domain whitelisting requirements.
+    TON_CONNECT_MANIFEST_URL: 'https://app-test.tlend.co/tonconnect-manifest.json',
 };
 
 // Application state
@@ -314,9 +313,9 @@ async function connectWithProof() {
 
 function generateProofPayload() {
     // Generate a simple payload for testing
-    // In production EVAA, this would include HMAC-signed expiration
+    // In production, partners MUST use HMAC-signed payload per RFC Section 12.2
     const timestamp = Math.floor(Date.now() / 1000) + 300; // 5 min expiry
-    return `evaa-mock-${timestamp}`;
+    return `partner-mock-${timestamp}`;
 }
 
 // ============================================================================
@@ -651,8 +650,8 @@ function generateMockTonProof(address) {
         proof: {
             timestamp: Math.floor(Date.now() / 1000),
             domain: {
-                lengthBytes: 12,
-                value: 'evaa.finance',
+                lengthBytes: 15,
+                value: 'partner.example', // Partner's domain - must be whitelisted by TLend
             },
             payload: payloadHex,
             signature: mockSignature,
@@ -1178,7 +1177,7 @@ function bindEventListeners() {
     window.addEventListener('message', handleMessage);
 
     // Theme change
-    elements.evaaTheme?.addEventListener('change', () => {
+    elements.partnerTheme?.addEventListener('change', () => {
         if (state.iframeLoaded) {
             sendStylesUpgrade();
         }
