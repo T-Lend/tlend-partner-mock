@@ -1,7 +1,7 @@
 # RFC-001: TLend Partner Iframe Integration Protocol
 
 **Status:** Draft
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Date:** 2025-12-17
 **Authors:** TLend Team
 
@@ -11,6 +11,7 @@
 
 1. [Abstract](#1-abstract)
 2. [Motivation](#2-motivation)
+   - 2.5 [Quick Start Reference](#25-quick-start-reference)
 3. [Overview](#3-overview)
 4. [Integration Architecture](#4-integration-architecture)
 5. [Message Protocol Specification](#5-message-protocol-specification)
@@ -47,6 +48,46 @@ Partners (DeFi protocols, wallets, aggregators) may seek to integrate TLend's le
 - **Unified Authentication**: Single wallet connection shared between platforms
 - **Streamlined Transactions**: Repayments handled through Partner's infrastructure
 - **Consistent Branding**: TLend UI adapts to Partner's design language
+
+---
+
+## 2.5 Quick Start Reference
+
+### Environment URLs
+
+| Environment | Iframe URL | Backend API | Origin (for validation) |
+|-------------|------------|-------------|-------------------------|
+| **Production** | `https://app.tlend.co` | `https://backend.tlend.co` | `https://app.tlend.co` |
+| **Staging** | `https://app-test.tlend.co` | `https://backend.tlend.co` | `https://app-test.tlend.co` |
+
+### Iframe Embedding
+
+Embed TLend by loading the iframe URL with your partner ID:
+
+```html
+<iframe
+  src="https://app.tlend.co?partner=YOUR_PARTNER_ID"
+  allow="clipboard-read; clipboard-write"
+  style="width: 100%; height: 600px; border: none;">
+</iframe>
+```
+
+### Minimal Integration Flow
+
+```
+1. Load iframe with ?partner=YOUR_ID
+2. Wait for TLEND_LOADED message
+3. Send STYLES_UPGRADE (optional, for theming)
+4. Send AUTH_CHECK_REQUEST with user's wallet address
+5. If not authenticated: Send AUTH_CREDENTIALS with TON proof
+6. Wait for TLEND_READY
+7. Handle REPAY_REQUEST when user initiates repayment
+```
+
+### Test Partner ID
+
+For staging environment testing, you may use:
+- Partner ID: `partner_test` (contact TLend for production ID)
 
 ---
 
@@ -182,9 +223,72 @@ All messages conform to a base schema with type-specific payloads:
 interface BaseMessage {
   type: string;
   requestId?: string;
-  timestamp: number;
+  timestamp: number;  // Unix timestamp in MILLISECONDS
 }
 ```
+
+### 5.3 Message Timing & Ordering
+
+Understanding when to send messages is critical for reliable integration.
+
+#### Timing Diagram
+
+```
+Partner                                    TLend
+   │                                          │
+   │──── <load iframe> ──────────────────────►│
+   │                                          │
+   │              (TLend initializes)         │
+   │                                          │
+   │◄──────────── TLEND_LOADED ───────────────│  ← Wait for this first
+   │                                          │
+   │  ┌─ Can send in parallel ─┐              │
+   │  │                        │              │
+   │──┼── STYLES_UPGRADE ──────┼─────────────►│
+   │  │                        │              │
+   │──┼── SET_LOGO ────────────┼─────────────►│
+   │  │                        │              │
+   │──┼── AUTH_CHECK_REQUEST ──┼─────────────►│
+   │  └────────────────────────┘              │
+   │                                          │
+   │◄─────── AUTH_CHECK_RESPONSE ─────────────│
+   │                                          │
+   │  (if not authenticated)                  │
+   │                                          │
+   │──────── AUTH_CREDENTIALS ───────────────►│
+   │                                          │
+   │◄──────────── AUTH_RESULT ────────────────│
+   │                                          │
+   │◄──────────── TLEND_READY ────────────────│  ← Safe to show iframe
+   │                                          │
+```
+
+#### Key Timing Rules
+
+| Rule | Description |
+|------|-------------|
+| **Wait for TLEND_LOADED** | Never send messages before receiving `TLEND_LOADED` |
+| **Parallel OK** | `STYLES_UPGRADE`, `SET_LOGO`, and `AUTH_CHECK_REQUEST` can be sent in parallel |
+| **Sequential Auth** | Wait for `AUTH_CHECK_RESPONSE` before sending `AUTH_CREDENTIALS` |
+| **Show on READY** | Display iframe to user only after `TLEND_READY` |
+
+#### Recommended Delays
+
+While messages can be sent immediately after `TLEND_LOADED`, adding small delays improves reliability:
+
+```javascript
+// After receiving TLEND_LOADED
+setTimeout(() => sendStylesUpgrade(), 100);    // 100ms
+setTimeout(() => sendSetLogo(), 100);          // 100ms (parallel)
+setTimeout(() => sendAuthCheckRequest(), 100); // 100ms (parallel)
+```
+
+#### Race Condition Handling
+
+If `TLEND_LOADED` is not received within 5 seconds of iframe load:
+1. Log a warning
+2. Attempt to send messages anyway (TLend may be a version that doesn't send TLEND_LOADED)
+3. If no response to `AUTH_CHECK_REQUEST` within 5s, show error to user
 
 ---
 
@@ -307,6 +411,16 @@ interface SetLogoMessage {
 - `tlend_only` - Show only TLend logo (default)
 - `partner_only` - Show only Partner logo
 - `combined` - Show combined "TLend x Partner" logo
+
+**Logo Requirements:**
+
+| Property | Requirement |
+|----------|-------------|
+| Format | SVG (preferred), PNG, or WebP |
+| Dimensions | Square or horizontal, min 64x64px, max 512x512px |
+| File size | Max 100KB |
+| Background | Transparent recommended |
+| Accessibility | Must be visible on both dark and light backgrounds |
 
 **Example:**
 ```json
@@ -532,19 +646,22 @@ interface AuthCredentialsMessage {
       walletStateInit: string; // Base64-encoded wallet state init
     };
     proof: {
-      timestamp: number;       // Proof creation timestamp (Unix seconds)
+      timestamp: number;       // Proof creation timestamp (Unix SECONDS, not ms!)
       domain: {
         lengthBytes: number;   // Length of domain value in bytes
-        value: string;         // Domain that signed the proof
+        value: string;         // Domain that signed the proof (must be whitelisted)
       };
-      payload: string;         // Challenge payload (see Section 12.2)
+      payload: string;         // Challenge payload (see Section 12.3)
       signature: string;       // Base64-encoded signature
     };
     partnerId: string;         // Partner identifier (assigned during onboarding)
-    referenceId?: string;      // Optional reference/tracking ID
+    referenceId?: string;      // Optional: Partner's internal session/user ID for analytics
   };
 }
 ```
+
+**Field Notes:**
+- `referenceId` is optional and used for Partner's analytics/debugging. TLend logs it but doesn't act on it. Recommended format: `{partnerId}-{userId}-{timestamp}`
 
 **Example:**
 ```json
@@ -1055,6 +1172,69 @@ interface ErrorMessage {
 | AUTH_CREDENTIALS   | 30 seconds | Report error, allow retry     |
 | REPAY_REQUEST      | 60 seconds | Report error, check tx status |
 
+### 11.4 Retry & Error Recovery
+
+#### Retriable vs Fatal Errors
+
+| Error Code | Retriable | Max Retries | Backoff |
+|------------|-----------|-------------|---------|
+| `TIMEOUT` | Yes | 3 | Exponential (1s, 2s, 4s) |
+| `INTERNAL_ERROR` | Yes | 2 | Linear (2s) |
+| `INVALID_SIGNATURE` | No | - | Request new credentials |
+| `INVALID_PAYLOAD` | No | - | Request new credentials |
+| `PAYLOAD_EXPIRED` | No | - | Generate new payload |
+| `USER_REJECTED` | No | - | User must re-initiate |
+| `PARTNER_NOT_FOUND` | No | - | Contact TLend support |
+| `INSUFFICIENT_FUNDS` | No | - | User must add funds |
+
+#### Retry Implementation
+
+```typescript
+async function sendWithRetry(
+  sendFn: () => void,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<void> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await sendFn();
+      return;
+    } catch (error) {
+      if (!isRetriableError(error) || attempt === maxRetries - 1) {
+        throw error;
+      }
+      const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
+function isRetriableError(error: { code: string }): boolean {
+  return ['TIMEOUT', 'INTERNAL_ERROR'].includes(error.code);
+}
+```
+
+#### Re-authentication Flow
+
+When credentials fail (`INVALID_SIGNATURE`, `INVALID_PAYLOAD`, `PAYLOAD_EXPIRED`):
+
+1. **Do NOT retry with same credentials**
+2. Generate fresh TON proof with new challenge payload
+3. Send new `AUTH_CREDENTIALS` message
+4. If fails again, show error to user
+
+```typescript
+function handleAuthFailure(error: AuthError): void {
+  if (['INVALID_SIGNATURE', 'INVALID_PAYLOAD', 'PAYLOAD_EXPIRED'].includes(error.code)) {
+    // Don't retry - get fresh credentials
+    requestFreshTonProof().then(sendAuthCredentials);
+  } else if (error.code === 'PARTNER_NOT_FOUND') {
+    // Fatal - configuration error
+    showError('Integration not configured. Contact support.');
+  }
+}
+```
+
 ---
 
 ## 12. Partner Onboarding
@@ -1078,6 +1258,12 @@ To integrate with TLend as a partner:
    | **TON Proof domains** | Verify `proof.domain.value` | `app.partner.com` |
 
    **Important:** All three use the same domain(s). Provide complete list upfront.
+
+   **Domain Matching Rules:**
+   - Exact match required (no wildcards)
+   - Subdomains are NOT automatically included
+   - `app.partner.com` ≠ `staging.app.partner.com` ≠ `partner.com`
+   - Request all needed domains during onboarding (staging, production, etc.)
 
 4. **Receive Configuration:**
    - `partnerId` - Unique partner identifier
@@ -1190,6 +1376,8 @@ If partner cannot manage HMAC shared secrets, they can use TLend's challenge end
 
 2. Partner uses this challenge as the `tonProof` payload in TON Connect
 3. TLend verifies the challenge since TLend generated it
+
+**CORS Note:** The challenge endpoint supports CORS and can be called directly from browser JavaScript. No backend proxy required.
 
 **Partner Implementation:**
 ```typescript
@@ -1568,12 +1756,42 @@ python3 -m http.server 8080
 - [Jetton Standard](https://github.com/ton-blockchain/TEPs/blob/master/text/0074-jettons-standard.md)
 - [Window.postMessage() MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
 
-### 14.5 Revision History
+### 14.5 Support & Contact
+
+#### Integration Support
+
+| Channel | Purpose | Response Time |
+|---------|---------|---------------|
+| **Telegram** | @tlend_dev_support | < 24 hours |
+| **Email** | partners@tlend.co | 1-2 business days |
+| **GitHub Issues** | Bug reports, feature requests | Triaged weekly |
+
+#### Common Issues & Quick Fixes
+
+| Issue | Solution |
+|-------|----------|
+| Iframe shows blank/error | Check CSP `frame-ancestors` whitelist with TLend |
+| `PARTNER_NOT_FOUND` error | Verify `partnerId` matches onboarding config |
+| TON proof verification fails | Ensure `proof.domain.value` matches whitelisted domain |
+| Messages not received | Check origin validation on both sides |
+| Challenge endpoint 403 | Contact TLend - CORS may need configuration |
+
+#### Before Contacting Support
+
+Please prepare:
+1. Your `partnerId`
+2. Environment (staging/production)
+3. Browser console logs
+4. Network tab showing postMessage traffic
+5. Screenshot of Event Log (if using mock test stand)
+
+### 14.6 Revision History
 
 | Version | Date       | Author     | Changes                                           |
 |---------|------------|------------|---------------------------------------------------|
 | 1.0.0   | 2025-12-15 | TLend Team | Initial draft                                     |
 | 2.0.0   | 2025-12-17 | TLend Team | Whitelabel support, session lifecycle, SET_LOGO   |
+| 2.1.0   | 2025-12-17 | TLend Team | Added Quick Start, timing guide, retry policy, support info |
 
 ---
 
