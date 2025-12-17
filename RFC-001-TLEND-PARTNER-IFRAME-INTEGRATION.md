@@ -1177,23 +1177,36 @@ function verifyPartnerPayload(payloadHex: string, sharedSecret: Buffer): boolean
 }
 ```
 
-#### Option B: Custom Payload with Verification Endpoint
+#### Option B: TLend Challenge Endpoint (Simpler)
 
-If partner cannot use shared secrets, they can provide a verification endpoint:
+If partner cannot manage HMAC shared secrets, they can use TLend's challenge endpoint:
 
-1. Partner generates arbitrary payload with expiration
-2. TLend calls Partner's verification endpoint:
+1. Partner calls TLend's challenge endpoint before TON Connect:
    ```
-   POST https://partner.com/api/verify-tlend-payload
-   {
-     "payload": "...",
-     "address": "0:...",
-     "partnerId": "partner_xyz"
-   }
-   ```
-3. Partner responds with `{ "valid": true/false, "expiresAt": timestamp }`
+   GET https://backend.tlend.co/api/auth/challenge
 
-**Note:** Option B adds latency and dependency. Option A is strongly recommended.
+   Response: { "challenge": "iGE2WPrESdwAAAGbLBOTnhyn1e/uiQEr..." }
+   ```
+
+2. Partner uses this challenge as the `tonProof` payload in TON Connect
+3. TLend verifies the challenge since TLend generated it
+
+**Partner Implementation:**
+```typescript
+async function getProofPayload(): Promise<string> {
+  const response = await fetch('https://backend.tlend.co/api/auth/challenge');
+  const data = await response.json();
+  return data.challenge;
+}
+
+// Use in TON Connect
+tonConnectUI.setConnectRequestParameters({
+  state: 'ready',
+  value: { tonProof: await getProofPayload() }
+});
+```
+
+**Note:** Option B requires an extra API call but avoids shared secret management. Option A is more efficient for high-volume partners.
 
 ### 12.4 Partner Configuration at TLend
 
@@ -1205,14 +1218,15 @@ interface PartnerConfig {
   name: string;
   allowedOrigins: string[];        // For postMessage validation & CSP frame-ancestors
   allowedDomains: string[];        // For TON Proof domain verification
-  hmacSecret?: string;             // For Option A payload verification
-  verificationEndpoint?: string;   // For Option B payload verification
+  hmacSecret?: string;             // For Option A payload verification (optional)
   logoUrl?: string;
   active: boolean;
 }
 ```
 
-**Note:** `allowedOrigins` is used for both postMessage validation and CSP `frame-ancestors` header generation.
+**Notes:**
+- `allowedOrigins` is used for both postMessage validation and CSP `frame-ancestors` header generation
+- `hmacSecret` is only needed if partner uses Option A; Option B uses TLend's challenge endpoint
 
 ---
 
@@ -1549,6 +1563,7 @@ python3 -m http.server 8080
 
 ### 14.4 Related Documents
 
+- [TLend Backend API Reference](https://backend.tlend.co/redoc.html) - Authentication endpoints, challenge generation
 - [TON Connect Authentication](https://docs.ton.org/v3/guidelines/ton-connect/verifying-signed-in-users)
 - [Jetton Standard](https://github.com/ton-blockchain/TEPs/blob/master/text/0074-jettons-standard.md)
 - [Window.postMessage() MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
