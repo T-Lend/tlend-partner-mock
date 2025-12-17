@@ -56,7 +56,7 @@ Partners (DeFi protocols, wallets, aggregators) may seek to integrate TLend's le
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Partner Application                          │
+│                     Partner Application                         │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                      Parent Window                        │  │
 │  │  - TON Connect UI (wallet management)                     │  │
@@ -1075,7 +1075,7 @@ Use TLend's standard 32-byte payload format with shared HMAC secret:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      32 bytes (64 hex chars)                     │
+│                      32 bytes (64 hex chars)                    │
 ├────────────────┬────────────────────────────────────────────────┤
 │  Bytes 0-3     │  Bytes 4-31                                    │
 │  (4 bytes)     │  (28 bytes)                                    │
