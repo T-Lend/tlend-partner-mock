@@ -983,13 +983,25 @@ TLend backend MUST verify TON Proof signatures per [TON Connect specification](h
 - Each request has unique `requestId`
 - Backend should track recent IDs
 
-### 10.5 Content Security Policy
+### 10.5 Content Security Policy & Iframe Embedding
 
-TLend should include appropriate CSP headers allowing Partner origins:
+**CRITICAL:** For a partner to embed TLend in an iframe, TLend MUST configure CSP `frame-ancestors` to allow the partner's origin. Without this, browsers will block the iframe.
 
 ```
-Content-Security-Policy: frame-ancestors 'self' https://partner.com;
+Content-Security-Policy: frame-ancestors 'self' https://partner.com https://app.partner.com;
+X-Frame-Options: ALLOW-FROM https://partner.com
 ```
+
+**Why this matters:**
+- Modern browsers enforce CSP by default
+- Without `frame-ancestors`, the iframe will show a blank page or error
+- Each partner origin must be explicitly whitelisted
+- This is configured during partner onboarding (see Section 12.1)
+
+**Partner checklist before going live:**
+1. Confirm your production domain(s) are added to TLend's CSP
+2. Test iframe embedding in staging environment first
+3. Verify no browser console errors about frame blocking
 
 ### 10.6 Rate Limiting
 
@@ -1054,18 +1066,48 @@ To integrate with TLend as a partner:
 1. **Contact TLend Team** - Request partner integration
 2. **Provide Information:**
    - Partner name and description
-   - Domain(s) for origin validation
+   - Domain(s) for all environments (staging, production)
    - Logo assets (SVG preferred)
    - Technical contact
-3. **Receive Configuration:**
-   - `partnerId` - Unique partner identifier
-   - Allowed origins configured in TLend
-   - HMAC shared secret (if using standard payload format)
-4. **Implement Protocol** - Follow this RFC
-5. **Testing** - Use TLend staging environment
-6. **Go Live** - Production deployment
+3. **Domain Whitelisting** - TLend configures three related whitelists:
 
-### 12.2 Partner Payload Specification
+   | Whitelist | Purpose | Example |
+   |-----------|---------|---------|
+   | **CSP frame-ancestors** | Allow partner to embed TLend iframe | `https://app.partner.com` |
+   | **postMessage origins** | Validate message sender | `https://app.partner.com` |
+   | **TON Proof domains** | Verify `proof.domain.value` | `app.partner.com` |
+
+   **Important:** All three use the same domain(s). Provide complete list upfront.
+
+4. **Receive Configuration:**
+   - `partnerId` - Unique partner identifier
+   - HMAC shared secret (if using standard payload format)
+   - Confirmation of whitelisted domains
+5. **Implement Protocol** - Follow this RFC
+6. **Testing** - Use TLend staging environment (`app-test.tlend.co`)
+7. **Go Live** - Production deployment
+
+### 12.2 TON Connect Manifest Requirements
+
+Partners authenticate users via TON Connect on their own domain. This means:
+
+- Partner MUST host their own `tonconnect-manifest.json` on their domain
+- The manifest's domain becomes `proof.domain.value` in TON Proof
+- TLend verifies this domain against the partner whitelist
+- **Do NOT use TLend's manifest** - it won't match your domain
+
+**Example manifest** (`https://app.partner.com/tonconnect-manifest.json`):
+```json
+{
+  "url": "https://app.partner.com",
+  "name": "Partner Finance",
+  "iconUrl": "https://app.partner.com/logo.png"
+}
+```
+
+When users connect, the TON Proof will contain `domain.value: "app.partner.com"`, which TLend will verify against the whitelist.
+
+### 12.3 Partner Payload Specification
 
 The `proof.payload` field in `AUTH_CREDENTIALS` must be verifiable by TLend. Partners have two options:
 
@@ -1153,7 +1195,7 @@ If partner cannot use shared secrets, they can provide a verification endpoint:
 
 **Note:** Option B adds latency and dependency. Option A is strongly recommended.
 
-### 12.3 Partner Configuration at TLend
+### 12.4 Partner Configuration at TLend
 
 TLend maintains partner configuration:
 
@@ -1161,14 +1203,16 @@ TLend maintains partner configuration:
 interface PartnerConfig {
   partnerId: string;
   name: string;
-  allowedOrigins: string[];
+  allowedOrigins: string[];        // For postMessage validation & CSP frame-ancestors
   allowedDomains: string[];        // For TON Proof domain verification
-  hmacSecret?: string;             // For Option A
-  verificationEndpoint?: string;   // For Option B
+  hmacSecret?: string;             // For Option A payload verification
+  verificationEndpoint?: string;   // For Option B payload verification
   logoUrl?: string;
   active: boolean;
 }
 ```
+
+**Note:** `allowedOrigins` is used for both postMessage validation and CSP `frame-ancestors` header generation.
 
 ---
 
