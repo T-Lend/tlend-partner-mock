@@ -161,7 +161,11 @@ PartnerMock.sendAuthCheckRequest();
 PartnerMock.sendAuthCredentials();
 PartnerMock.sendDisconnect('user_initiated');
 
-// Generate mock TON proof
+// Fetch TLend challenge (Option B per RFC)
+const challenge = await PartnerMock.fetchTLendChallenge();
+console.log(challenge);
+
+// Generate mock TON proof (for offline testing)
 const proof = PartnerMock.generateMockTonProof('0:abc...');
 console.log(proof);
 ```
