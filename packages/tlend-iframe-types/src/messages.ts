@@ -196,6 +196,10 @@ export interface SetLogoMessage extends BaseMessage {
     partnerName?: string
     /** Combined logo URL (for combined mode) */
     combinedLogoUrl?: string
+    /** Logo width (CSS value, e.g., "120px", "auto") */
+    width?: string
+    /** Logo height (CSS value, e.g., "32px", "auto") */
+    height?: string
   }
 }
 

@@ -408,6 +408,8 @@ interface SetLogoMessage {
     partnerLogoUrl?: string;    // URL to partner's logo (required for combined/partner_only)
     partnerName?: string;       // Partner display name
     combinedLogoUrl?: string;   // Pre-made combined logo URL (optional)
+    width?: string;             // Logo width (CSS value, e.g., "120px", "auto")
+    height?: string;            // Logo height (CSS value, e.g., "32px", "auto")
   };
 }
 ```
@@ -416,6 +418,12 @@ interface SetLogoMessage {
 - `tlend_only` - Show only TLend logo (default)
 - `partner_only` - Show only Partner logo
 - `combined` - Show combined "TLend x Partner" logo
+
+**Logo Dimensions:**
+- `width` - Optional CSS width value (e.g., "120px", "100%", "auto")
+- `height` - Optional CSS height value (e.g., "32px", "auto")
+- If not specified, TLend uses default dimensions
+- Aspect ratio is preserved when only one dimension is specified
 
 **Logo Requirements:**
 
@@ -435,7 +443,9 @@ interface SetLogoMessage {
   "payload": {
     "mode": "combined",
     "partnerName": "Partner Finance",
-    "partnerLogoUrl": "https://partner.com/logo.svg"
+    "partnerLogoUrl": "https://partner.com/logo.svg",
+    "width": "140px",
+    "height": "36px"
   }
 }
 ```
@@ -1615,6 +1625,8 @@ export interface SetLogoMessage extends BaseMessage {
     partnerLogoUrl?: string;
     partnerName?: string;
     combinedLogoUrl?: string;
+    width?: string;
+    height?: string;
   };
 }
 
@@ -1857,6 +1869,7 @@ Please prepare:
 | 2.0.0   | 2025-12-17 | TLend Team | Whitelabel support, session lifecycle, SET_LOGO   |
 | 2.1.0   | 2025-12-17 | TLend Team | Added Quick Start, timing guide, retry policy, support info |
 | 2.2.0   | 2025-12-17 | TLend Team | Address format (raw only), chain ID (-239 mainnet), new error codes (DOMAIN_MISMATCH, INVALID_CHAIN, INVALID_ADDRESS_FORMAT, UNSUPPORTED_LOGO_MODE), challenge endpoint spec, TLEND_READY timing clarification |
+| 2.3.0   | 2025-12-21 | TLend Team | Added logo dimension properties (width, height) to SET_LOGO message |
 
 ---
 
