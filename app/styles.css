@@ -215,6 +215,18 @@ body {
     color: var(--text-secondary);
 }
 
+.config-item.config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.config-item.config-row > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .config-actions {
     display: flex;
     gap: 12px;

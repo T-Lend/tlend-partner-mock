@@ -418,18 +418,31 @@ function sendStylesUpgrade() {
 }
 
 // v2.0: Separate logo configuration message
+// v2.3.0: Added width and height support
 function sendSetLogo() {
     const logoMode = elements.logoMode?.value || 'combined';
     const partnerName = elements.partnerName?.value || 'Partner Finance';
+    const logoWidth = elements.logoWidth?.value || '';
+    const logoHeight = elements.logoHeight?.value || '';
+
+    const payload = {
+        mode: logoMode,
+        partnerName: partnerName,
+        partnerLogoUrl: 'https://partner.example.com/logo.svg',
+    };
+
+    // v2.3.0: Add dimensions if specified
+    if (logoWidth) {
+        payload.width = logoWidth;
+    }
+    if (logoHeight) {
+        payload.height = logoHeight;
+    }
 
     const message = {
         type: MessageTypes.SET_LOGO,
         timestamp: Date.now(),
-        payload: {
-            mode: logoMode,
-            partnerName: partnerName,
-            partnerLogoUrl: 'https://partner.example.com/logo.svg',
-        }
+        payload: payload
     };
 
     sendToTLend(message);
@@ -1126,6 +1139,8 @@ function initializeElements() {
         partnerName: document.getElementById('partnerName'),
         partnerTheme: document.getElementById('partnerTheme'),
         logoMode: document.getElementById('logoMode'),
+        logoWidth: document.getElementById('logoWidth'),
+        logoHeight: document.getElementById('logoHeight'),
         autoReadyMode: document.getElementById('autoReadyMode'),
         skipAuth: document.getElementById('skipAuth'),
 
